@@ -159,7 +159,7 @@ let callback: CGEventTapCallBack = { _, type, event, _ in
     if sourcePID == ownPID { return Unmanaged.passUnretained(event) }
     // 트리거 후보 keycode일 때만 출처 프로세스를 확인한다
     var fromCRD = false
-    if keycode == config.crdKeycode {
+    if keycode == config.keycode || keycode == config.crdKeycode {
         fromCRD = crdDetector.isCRDHost(pid: pid_t(sourcePID))
     }
     let result = action(

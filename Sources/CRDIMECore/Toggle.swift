@@ -21,10 +21,11 @@ public enum KeyEventKind {
 }
 
 /// 이벤트 탭 콜백의 판단 로직 (F2, F4)
-/// - keycode(F18): 출처와 무관하게 트리거
-/// - crdKeycode(F19): CRD 호스트가 주입한 이벤트일 때만 트리거. 원격 시스템 단축키와 겹치지 않게 삼킨다
+/// CRD 호스트가 주입한 keycode(F18) 또는 crdKeycode(F19)만 트리거로 쓴다.
+/// 로컬 키보드나 Karabiner에서 온 F18은 통과시킨다. 같은 맥에 로컬 규칙과 이 프로그램이 함께 있어도
+/// 로컬 F18이 CRD로 넘어가야 상대 맥을 토글할 수 있기 때문이다 (A -> B, B -> A 양방향)
 public func action(kind: KeyEventKind, keycode: Int64, isAutorepeat: Bool, fromCRD: Bool, config: Config) -> KeyAction {
-    let isTrigger = keycode == config.keycode || (fromCRD && keycode == config.crdKeycode)
+    let isTrigger = fromCRD && (keycode == config.keycode || keycode == config.crdKeycode)
     guard isTrigger else { return .pass }
     switch kind {
     case .keyDown: return isAutorepeat ? .swallow : .toggleAndSwallow

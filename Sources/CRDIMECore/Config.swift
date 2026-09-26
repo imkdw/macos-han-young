@@ -68,8 +68,9 @@ public let usage = """
 
   --en <id>        영문 입력 소스 ID (기본값: \(Config.defaultEnglish))
   --ko <id>        한글 입력 소스 ID (기본값: \(Config.defaultKorean))
-  --keycode <n>    트리거 keycode, 출처 무관 (기본값: \(Config.defaultKeycode), F18)
-  --crd-keycode <n>  CRD 호스트가 보낸 경우에만 트리거로 쓰는 keycode (기본값: \(Config.defaultCRDKeycode), F19)
+  --keycode <n>    트리거 keycode (기본값: \(Config.defaultKeycode), F18)
+  --crd-keycode <n>  보조 트리거 keycode (기본값: \(Config.defaultCRDKeycode), F19)
+                   두 keycode 모두 CRD 호스트가 보낸 경우에만 반응한다. 로컬 키보드 입력은 통과
   --crd-process <name>  CRD 호스트 실행 파일 이름 (기본값: \(Config.defaultCRDProcess))
   --debounce <ms>  이 시간 안에 연달아 온 keyDown은 한 번으로 처리 (기본값: \(Config.defaultDebounceMs))
   --method <m>     auto | hotkey | tis (기본값: auto)
