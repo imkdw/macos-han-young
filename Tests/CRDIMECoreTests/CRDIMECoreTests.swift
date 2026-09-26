@@ -1,3 +1,4 @@
+import Foundation
 import CRDIMECore
 import XCTest
 
@@ -98,5 +99,37 @@ final class DebouncerTests: XCTestCase {
         guard case .run(let config) = try parseArguments(["--debounce", "150"]) else { return XCTFail() }
         XCTAssertEqual(config.debounceMs, 150)
         XCTAssertThrowsError(try parseArguments(["--debounce", "-1"]))
+    }
+}
+
+final class SymbolicHotkeyTests: XCTestCase {
+    func entry(enabled: Bool, keycode: Int, modifiers: Int) -> [String: Any] {
+        ["enabled": NSNumber(value: enabled),
+         "value": ["parameters": [NSNumber(value: 65535), NSNumber(value: keycode), NSNumber(value: modifiers)], "type": "standard"]]
+    }
+
+    func testParsesF19WithFn() {
+        XCTAssertEqual(SymbolicHotkey.parse(entry(enabled: true, keycode: 80, modifiers: 8_388_608)),
+                       SymbolicHotkey(keycode: 80, modifiers: 8_388_608))
+    }
+
+    func testDisabledOrUnassignedIsNil() {
+        XCTAssertNil(SymbolicHotkey.parse(entry(enabled: false, keycode: 80, modifiers: 0)))
+        XCTAssertNil(SymbolicHotkey.parse(entry(enabled: true, keycode: 65535, modifiers: 0)))
+        XCTAssertNil(SymbolicHotkey.parse(nil))
+    }
+
+    func testPrefersNextThenPrevious() {
+        let next = entry(enabled: true, keycode: 80, modifiers: 0)
+        let previous = entry(enabled: true, keycode: 49, modifiers: 262_144)
+        XCTAssertEqual(SymbolicHotkey.inputSourceHotkey(from: ["61": next, "60": previous])?.keycode, 80)
+        XCTAssertEqual(SymbolicHotkey.inputSourceHotkey(from: ["60": previous])?.keycode, 49)
+        XCTAssertNil(SymbolicHotkey.inputSourceHotkey(from: [:]))
+    }
+
+    func testMethodOption() throws {
+        guard case .run(let config) = try parseArguments(["--method", "tis"]) else { return XCTFail() }
+        XCTAssertEqual(config.method, .tis)
+        XCTAssertThrowsError(try parseArguments(["--method", "x"]))
     }
 }

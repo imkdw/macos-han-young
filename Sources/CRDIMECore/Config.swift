@@ -1,5 +1,14 @@
 import Foundation
 
+public enum ToggleMethod: String, Equatable {
+    /// 시스템 한영전환 단축키가 있으면 hotkey, 없으면 tis
+    case auto
+    /// 시스템 한영전환 단축키를 합성 키 이벤트로 누른다. 실제 키 입력과 같은 경로라 앱 반영이 확실하다
+    case hotkey
+    /// TISSelectInputSource로 직접 선택한다. 한/영 외 입력 소스에서 영문으로 보낼 수 있지만 반영이 가끔 누락된다 (R4)
+    case tis
+}
+
 public struct Config: Equatable {
     public static let defaultEnglish = "com.apple.keylayout.ABC"
     public static let defaultKorean = "com.apple.inputmethod.Korean.2SetKorean"
@@ -14,6 +23,7 @@ public struct Config: Equatable {
     public var keycode = Config.defaultKeycode
     public var crdKeycode = Config.defaultCRDKeycode
     public var debounceMs = Config.defaultDebounceMs
+    public var method = ToggleMethod.auto
 
     public init() {}
 }
@@ -36,6 +46,7 @@ public enum ArgumentError: Error, Equatable, CustomStringConvertible {
     case missingValue(String)
     case invalidKeycode(String)
     case invalidNumber(String)
+    case invalidMethod(String)
     case unknownOption(String)
 
     public var description: String {
@@ -43,6 +54,7 @@ public enum ArgumentError: Error, Equatable, CustomStringConvertible {
         case .missingValue(let flag): return "\(flag) 뒤에 값이 필요합니다"
         case .invalidKeycode(let value): return "keycode는 0~127 정수여야 합니다: \(value)"
         case .invalidNumber(let value): return "debounce는 0~5000 정수(ms)여야 합니다: \(value)"
+        case .invalidMethod(let value): return "method는 auto, hotkey, tis 중 하나여야 합니다: \(value)"
         case .unknownOption(let flag): return "알 수 없는 옵션: \(flag)"
         }
     }
@@ -56,6 +68,8 @@ public let usage = """
   --keycode <n>    트리거 keycode, 출처 무관 (기본값: \(Config.defaultKeycode), F18)
   --crd-keycode <n>  CRD 호스트가 보낸 경우에만 트리거로 쓰는 keycode (기본값: \(Config.defaultCRDKeycode), F19)
   --debounce <ms>  이 시간 안에 연달아 온 keyDown은 한 번으로 처리 (기본값: \(Config.defaultDebounceMs))
+  --method <m>     auto | hotkey | tis (기본값: auto)
+                   hotkey: 시스템 한영전환 단축키를 대신 누름, tis: 입력 소스를 직접 선택
   --toggle         이벤트 탭 없이 한 번만 토글하고 종료
   --check          입력 소스 ID가 유효한지만 확인하고 종료
   --list           선택 가능한 입력 소스 ID 목록 출력
@@ -97,6 +111,10 @@ public func parseArguments(_ args: [String]) throws -> Command {
                 throw ArgumentError.invalidNumber(raw)
             }
             config.debounceMs = ms
+        case "--method":
+            let raw = try value(after: arg)
+            guard let method = ToggleMethod(rawValue: raw) else { throw ArgumentError.invalidMethod(raw) }
+            config.method = method
         case "--toggle": mode = "toggle"
         case "--check": mode = "check"
         case "--list": return .list

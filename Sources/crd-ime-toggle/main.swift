@@ -58,18 +58,52 @@ if case .check = command {
 
 // MARK: - 토글
 
+let ownPID = Int64(getpid())
+
+// auto: 시스템 한영전환 단축키가 있으면 그걸 대신 누른다
+let hotkey: SymbolicHotkey? = {
+    switch config.method {
+    case .tis: return nil
+    case .hotkey, .auto:
+        let found = SymbolicHotkey.current()
+        if found == nil, config.method == .hotkey {
+            fail("시스템 설정 > 키보드 > 키보드 단축키 > 입력 소스 에 단축키가 없습니다. --method tis 를 쓰거나 단축키를 등록하세요.", code: 78)
+        }
+        return found
+    }
+}()
+
+/// 시스템 단축키를 실제 키 입력처럼 HID 단계에 주입한다. 로컬 캡스락과 같은 경로라 앱에 확실히 반영된다
+func pressSystemHotkey(_ hotkey: SymbolicHotkey) {
+    let source = CGEventSource(stateID: .hidSystemState)
+    for down in [true, false] {
+        guard let event = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(hotkey.keycode), keyDown: down) else { return }
+        event.flags = CGEventFlags(rawValue: hotkey.modifiers)
+        event.post(tap: .cghidEventTap)
+    }
+}
+
 var toggleGeneration = 0
 
 func toggle() {
+    let current = InputSource.currentID()
+
+    if let hotkey {
+        pressSystemHotkey(hotkey)
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(100)) {
+            log("\(current ?? "?") -> \(InputSource.currentID() ?? "?") (hotkey)")
+        }
+        return
+    }
+
     toggleGeneration += 1
     let generation = toggleGeneration
-    let current = InputSource.currentID()
     let target = nextInputSourceID(current: current, config: config)
     guard InputSource.select(target) else {
         log("선택 실패: \(target)")
         return
     }
-    log("\(current ?? "?") -> \(target)")
+    log("\(current ?? "?") -> \(target) (tis)")
 
     // R4: 한글 입력기를 선택한 직후 반영이 안 되는 경우가 있어 한 번 확인하고 다시 선택한다
     DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(50)) {
@@ -120,10 +154,13 @@ let callback: CGEventTapCallBack = { _, type, event, _ in
 
     let kind: KeyEventKind = type == .keyDown ? .keyDown : (type == .keyUp ? .keyUp : .other)
     let keycode = event.getIntegerValueField(.keyboardEventKeycode)
+    // 우리가 주입한 단축키 이벤트는 건드리지 않는다
+    let sourcePID = event.getIntegerValueField(.eventSourceUnixProcessID)
+    if sourcePID == ownPID { return Unmanaged.passUnretained(event) }
     // 트리거 후보 keycode일 때만 출처 프로세스를 확인한다
     var fromCRD = false
     if keycode == config.crdKeycode {
-        fromCRD = crdDetector.isCRDHost(pid: pid_t(event.getIntegerValueField(.eventSourceUnixProcessID)))
+        fromCRD = crdDetector.isCRDHost(pid: pid_t(sourcePID))
     }
     let result = action(
         kind: kind,
@@ -163,5 +200,5 @@ let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
 CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
 CGEvent.tapEnable(tap: tap, enable: true)
 
-log("시작: keycode=\(config.keycode) crd-keycode=\(config.crdKeycode) debounce=\(config.debounceMs)ms en=\(config.englishID) ko=\(config.koreanID)")
+log("시작: keycode=\(config.keycode) crd-keycode=\(config.crdKeycode) debounce=\(config.debounceMs)ms method=\(hotkey.map { "hotkey(keycode=\($0.keycode))" } ?? "tis") en=\(config.englishID) ko=\(config.koreanID)")
 CFRunLoopRun()
