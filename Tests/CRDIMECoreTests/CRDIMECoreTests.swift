@@ -51,16 +51,22 @@ final class ToggleTests: XCTestCase {
     }
 
     func testTriggerKeyDownToggles() {
-        XCTAssertEqual(action(kind: .keyDown, keycode: 79, isAutorepeat: false, fromCRD: false, config: config), .toggleAndSwallow)
+        XCTAssertEqual(action(kind: .keyDown, keycode: 79, isAutorepeat: false, fromCRD: true, config: config), .toggleAndSwallow)
     }
 
     // F4
     func testAutorepeatIsSwallowedWithoutToggle() {
-        XCTAssertEqual(action(kind: .keyDown, keycode: 79, isAutorepeat: true, fromCRD: false, config: config), .swallow)
+        XCTAssertEqual(action(kind: .keyDown, keycode: 79, isAutorepeat: true, fromCRD: true, config: config), .swallow)
     }
 
     func testTriggerKeyUpIsSwallowed() {
-        XCTAssertEqual(action(kind: .keyUp, keycode: 79, isAutorepeat: false, fromCRD: false, config: config), .swallow)
+        XCTAssertEqual(action(kind: .keyUp, keycode: 79, isAutorepeat: false, fromCRD: true, config: config), .swallow)
+    }
+
+    // 양방향 설치: 이 맥의 로컬 키보드(Karabiner)에서 나온 F18은 CRD로 넘어가야 하므로 건드리지 않는다
+    func testLocalF18PassesThrough() {
+        XCTAssertEqual(action(kind: .keyDown, keycode: 79, isAutorepeat: false, fromCRD: false, config: config), .pass)
+        XCTAssertEqual(action(kind: .keyUp, keycode: 79, isAutorepeat: false, fromCRD: false, config: config), .pass)
     }
 
     // CRD 호스트가 보낸 F19는 토글하고 삼킨다
@@ -131,5 +137,20 @@ final class SymbolicHotkeyTests: XCTestCase {
         guard case .run(let config) = try parseArguments(["--method", "tis"]) else { return XCTFail() }
         XCTAssertEqual(config.method, .tis)
         XCTAssertThrowsError(try parseArguments(["--method", "x"]))
+    }
+}
+
+final class CRDProcessTests: XCTestCase {
+    func testCRDProcessOption() throws {
+        guard case .run(let config) = try parseArguments(["--crd-process", "send-key"]) else { return XCTFail() }
+        XCTAssertEqual(config.crdProcess, "send-key")
+        XCTAssertEqual(Config().crdProcess, "remoting_me2me_host")
+    }
+
+    func testDetectorMatchesOwnProcessName() {
+        let ownName = (CRDSourceDetector.executablePath(of: getpid())! as NSString).lastPathComponent
+        XCTAssertTrue(CRDSourceDetector(processName: ownName).isCRDHost(pid: getpid()))
+        XCTAssertFalse(CRDSourceDetector().isCRDHost(pid: getpid()))
+        XCTAssertFalse(CRDSourceDetector().isCRDHost(pid: 0))
     }
 }
