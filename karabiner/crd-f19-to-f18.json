@@ -1,0 +1,42 @@
+{
+  "title": "crd-ime-toggle: Chrome 원격 데스크톱 한영전환",
+  "rules": [
+    {
+      "description": "Chrome 원격 데스크톱: 캡스락(F19) -> F18 (원격 맥 한영전환)",
+      "manipulators": [
+        {
+          "type": "basic",
+          "from": { "key_code": "f19", "modifiers": { "optional": ["any"] } },
+          "to": [{ "key_code": "f18" }],
+          "conditions": [
+            {
+              "type": "frontmost_application_if",
+              "bundle_identifiers": ["^com\\.google\\.Chrome\\.app\\.cmkncekebbebpfilplodngbpllndjkfo$"]
+            }
+          ]
+        },
+        {
+          "type": "basic",
+          "from": { "key_code": "caps_lock", "modifiers": { "optional": ["any"] } },
+          "to": [{ "key_code": "f18" }],
+          "conditions": [
+            {
+              "type": "frontmost_application_if",
+              "bundle_identifiers": ["^com\\.google\\.Chrome\\.app\\.cmkncekebbebpfilplodngbpllndjkfo$"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "description": "캡스락 -> F19 (한영전환용, Simple Modifications에 이미 있으면 켜지 않아도 됨)",
+      "manipulators": [
+        {
+          "type": "basic",
+          "from": { "key_code": "caps_lock", "modifiers": { "optional": ["any"] } },
+          "to": [{ "key_code": "f19" }]
+        }
+      ]
+    }
+  ]
+}
