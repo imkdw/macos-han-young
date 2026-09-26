@@ -17,6 +17,7 @@ public struct Config: Equatable {
     /// kVK_F19. CRD 호스트가 주입한 것만 트리거로 쓴다 (물리 키보드 F19는 통과)
     public static let defaultCRDKeycode: Int64 = 80
     public static let defaultDebounceMs = 300
+    public static let defaultCRDProcess = "remoting_me2me_host"
 
     public var englishID = Config.defaultEnglish
     public var koreanID = Config.defaultKorean
@@ -24,6 +25,8 @@ public struct Config: Equatable {
     public var crdKeycode = Config.defaultCRDKeycode
     public var debounceMs = Config.defaultDebounceMs
     public var method = ToggleMethod.auto
+    /// 키를 주입하는 CRD 호스트 실행 파일 이름. 이 프로세스가 보낸 키만 트리거로 쓴다
+    public var crdProcess = Config.defaultCRDProcess
 
     public init() {}
 }
@@ -67,6 +70,7 @@ public let usage = """
   --ko <id>        한글 입력 소스 ID (기본값: \(Config.defaultKorean))
   --keycode <n>    트리거 keycode, 출처 무관 (기본값: \(Config.defaultKeycode), F18)
   --crd-keycode <n>  CRD 호스트가 보낸 경우에만 트리거로 쓰는 keycode (기본값: \(Config.defaultCRDKeycode), F19)
+  --crd-process <name>  CRD 호스트 실행 파일 이름 (기본값: \(Config.defaultCRDProcess))
   --debounce <ms>  이 시간 안에 연달아 온 keyDown은 한 번으로 처리 (기본값: \(Config.defaultDebounceMs))
   --method <m>     auto | hotkey | tis (기본값: auto)
                    hotkey: 시스템 한영전환 단축키를 대신 누름, tis: 입력 소스를 직접 선택
@@ -115,6 +119,7 @@ public func parseArguments(_ args: [String]) throws -> Command {
             let raw = try value(after: arg)
             guard let method = ToggleMethod(rawValue: raw) else { throw ArgumentError.invalidMethod(raw) }
             config.method = method
+        case "--crd-process": config.crdProcess = try value(after: arg)
         case "--toggle": mode = "toggle"
         case "--check": mode = "check"
         case "--list": return .list

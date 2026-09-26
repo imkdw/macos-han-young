@@ -138,7 +138,7 @@ if !AXIsProcessTrustedWithOptions([promptKey: true] as CFDictionary) {
 // MARK: - 이벤트 탭
 
 var eventTap: CFMachPort?
-let crdDetector = CRDSourceDetector()
+let crdDetector = CRDSourceDetector(processName: config.crdProcess)
 var debouncer = TriggerDebouncer(window: Double(config.debounceMs) / 1000)
 
 let callback: CGEventTapCallBack = { _, type, event, _ in
@@ -200,5 +200,5 @@ let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
 CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
 CGEvent.tapEnable(tap: tap, enable: true)
 
-log("시작: keycode=\(config.keycode) crd-keycode=\(config.crdKeycode) debounce=\(config.debounceMs)ms method=\(hotkey.map { "hotkey(keycode=\($0.keycode))" } ?? "tis") en=\(config.englishID) ko=\(config.koreanID)")
+log("시작: keycode=\(config.keycode) crd-keycode=\(config.crdKeycode) crd-process=\(config.crdProcess) debounce=\(config.debounceMs)ms method=\(hotkey.map { "hotkey(keycode=\($0.keycode))" } ?? "tis") en=\(config.englishID) ko=\(config.koreanID)")
 CFRunLoopRun()

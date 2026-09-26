@@ -1,15 +1,18 @@
 import Darwin
 
-/// 이벤트를 주입한 프로세스가 CRD 호스트(remoting_me2me_host)인지 판별한다
+/// 이벤트를 주입한 프로세스가 CRD 호스트(기본값 remoting_me2me_host)인지 판별한다
 public final class CRDSourceDetector {
+    private let processName: String
     private var cache: [pid_t: Bool] = [:]
 
-    public init() {}
+    public init(processName: String = Config.defaultCRDProcess) {
+        self.processName = processName
+    }
 
     public func isCRDHost(pid: pid_t) -> Bool {
         guard pid > 0 else { return false }
         if let hit = cache[pid] { return hit }
-        let result = Self.executablePath(of: pid)?.hasSuffix("/remoting_me2me_host") ?? false
+        let result = Self.executablePath(of: pid)?.hasSuffix("/\(processName)") ?? false
         cache[pid] = result
         return result
     }
