@@ -1,4 +1,4 @@
-.PHONY: build test e2e install uninstall karabiner hotkey keylog clean
+.PHONY: build test e2e install uninstall karabiner karabiner-enable hotkey doctor keylog clean
 
 build:
 	swift build -c release
@@ -20,6 +20,14 @@ uninstall:
 # 로컬 맥: Karabiner 규칙 파일 설치
 karabiner:
 	./scripts/install-karabiner.sh
+
+# 로컬 맥: karabiner.json 을 백업하고 규칙을 바로 켠다
+karabiner-enable:
+	./scripts/install-karabiner.sh --enable
+
+# 설치 상태 점검 (역할 자동 판별)
+doctor:
+	./scripts/doctor.sh
 
 # 로컬, 원격 공통 (선택): 다음 입력 소스 단축키를 F19로
 hotkey:
