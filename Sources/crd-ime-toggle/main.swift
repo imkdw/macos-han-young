@@ -58,9 +58,7 @@ if case .check = command {
 
 // MARK: - 토글
 
-let ownPID = Int64(getpid())
-
-// auto: 시스템 한영전환 단축키가 있으면 그걸 대신 누른다
+// auto: 시스템 한영전환 단축키가 있으면 CRD가 보낸 키를 그 단축키로 바꿔서 넘긴다
 let hotkey: SymbolicHotkey? = {
     switch config.method {
     case .tis: return nil
@@ -73,29 +71,19 @@ let hotkey: SymbolicHotkey? = {
     }
 }()
 
-/// 시스템 단축키를 실제 키 입력처럼 HID 단계에 주입한다. 로컬 캡스락과 같은 경로라 앱에 확실히 반영된다
-func pressSystemHotkey(_ hotkey: SymbolicHotkey) {
-    let source = CGEventSource(stateID: .hidSystemState)
-    for down in [true, false] {
-        guard let event = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(hotkey.keycode), keyDown: down) else { return }
-        event.flags = CGEventFlags(rawValue: hotkey.modifiers)
-        event.post(tap: .cghidEventTap)
-    }
+/// CRD가 주입한 트리거 이벤트를 시스템 한영전환 단축키로 고쳐 쓴다. 고친 이벤트는 삼키지 않고 그대로 넘긴다.
+/// 키 이벤트를 새로 만들어 주입하면 안 된다. CRD 호스트가 로컬 사용자의 입력으로 보고 원격 키보드와 마우스를 2초간 막는다.
+/// 받은 이벤트를 고치면 출처가 CRD 호스트로 남아 막히지 않고, 시스템 단축키 경로를 타므로 앱에도 바로 반영된다
+func rewriteAsSystemHotkey(_ event: CGEvent, _ hotkey: SymbolicHotkey) {
+    event.setIntegerValueField(.keyboardEventKeycode, value: hotkey.keycode)
+    event.flags = CGEventFlags(rawValue: hotkey.modifiers)
 }
 
 var toggleGeneration = 0
 
-func toggle() {
+/// 입력 소스를 직접 선택해 토글한다 (tis 방식, --toggle)
+func selectNextInputSource() {
     let current = InputSource.currentID()
-
-    if let hotkey {
-        pressSystemHotkey(hotkey)
-        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(100)) {
-            log("\(current ?? "?") -> \(InputSource.currentID() ?? "?") (hotkey)")
-        }
-        return
-    }
-
     toggleGeneration += 1
     let generation = toggleGeneration
     let target = nextInputSourceID(current: current, config: config)
@@ -116,7 +104,7 @@ func toggle() {
 }
 
 if case .toggleOnce = command {
-    toggle()
+    selectNextInputSource()
     // 재선택 확인이 끝날 때까지 기다린다
     RunLoop.main.run(until: Date().addingTimeInterval(0.2))
     print(InputSource.currentID() ?? "?")
@@ -154,9 +142,7 @@ let callback: CGEventTapCallBack = { _, type, event, _ in
 
     let kind: KeyEventKind = type == .keyDown ? .keyDown : (type == .keyUp ? .keyUp : .other)
     let keycode = event.getIntegerValueField(.keyboardEventKeycode)
-    // 우리가 주입한 단축키 이벤트는 건드리지 않는다
     let sourcePID = event.getIntegerValueField(.eventSourceUnixProcessID)
-    if sourcePID == ownPID { return Unmanaged.passUnretained(event) }
     // 트리거 후보 keycode일 때만 출처 프로세스를 확인한다
     var fromCRD = false
     if keycode == config.keycode || keycode == config.crdKeycode {
@@ -174,12 +160,25 @@ let callback: CGEventTapCallBack = { _, type, event, _ in
     }
     switch result {
     case .pass: return Unmanaged.passUnretained(event)
-    case .swallow: return nil
-    case .toggleAndSwallow:
-        if debouncer.keyDown(at: ProcessInfo.processInfo.systemUptime) {
-            toggle()
+    case .swallow:
+        // 단축키 방식: keyDown을 단축키로 넘겼으니 짝이 되는 keyUp도 같은 키로 넘긴다
+        if let hotkey, kind == .keyUp {
+            rewriteAsSystemHotkey(event, hotkey)
+            return Unmanaged.passUnretained(event)
         }
         return nil
+    case .toggleAndSwallow:
+        guard debouncer.keyDown(at: ProcessInfo.processInfo.systemUptime) else { return nil }
+        guard let hotkey else {
+            selectNextInputSource()
+            return nil
+        }
+        let current = InputSource.currentID()
+        rewriteAsSystemHotkey(event, hotkey)
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(100)) {
+            log("\(current ?? "?") -> \(InputSource.currentID() ?? "?") (hotkey)")
+        }
+        return Unmanaged.passUnretained(event)
     }
 }
 

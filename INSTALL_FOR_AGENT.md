@@ -14,7 +14,7 @@ Chrome 원격 데스크톱(CRD)으로 맥에서 맥에 접속했을 때, 로컬 
 ```
 로컬 맥 (접속하는 쪽)                           원격 맥 (CRD 호스트)
 캡스락 -> [Karabiner] F19                          crd-ime-toggle (LaunchAgent)
-  CRD 앱이 맨 앞이면 -> [Karabiner 규칙] F18  ---CRD--->  CRD 호스트가 주입한 F18만 받아 시스템 한영전환 단축키를 대신 눌러 토글
+  CRD 앱이 맨 앞이면 -> [Karabiner 규칙] F18  ---CRD--->  CRD 호스트가 주입한 F18만 받아 시스템 한영전환 단축키로 바꿔 넘겨 토글
   그 밖의 앱이면 F19 그대로 -> 로컬 한영전환
 ```
 
@@ -46,7 +46,7 @@ make doctor
 | doctor 출력 | 처리 |
 |---|---|
 | `FAIL swift 없음` | **[사람]** `xcode-select --install` 설치 창 승인 |
-| `WARN 입력 소스 전환 단축키 없음` | `make hotkey` (원격은 이 단축키를 대신 눌러 토글한다. 없으면 정확도가 낮은 tis 방식으로 동작) |
+| `WARN 입력 소스 전환 단축키 없음` | `make hotkey` (원격은 받은 키를 이 단축키로 바꿔 넘겨 토글한다. 없으면 정확도가 낮은 tis 방식으로 동작) |
 | `WARN Karabiner-Elements 설정 없음` | 로컬 맥이라면 **[사람]** https://karabiner-elements.pqrs.org 설치 후 한 번 실행하고 권한 허용 |
 | `WARN Karabiner 캡스락 -> F19 매핑 없음` | 로컬: 3단계의 `make karabiner-enable` 이 함께 추가한다. 원격 맥 앞에서도 캡스락 한영전환을 쓰려면 원격에도 같은 매핑 필요 |
 
@@ -121,6 +121,7 @@ tail -20 ~/Library/Logs/crd-ime-toggle.log
 | 원격 로그에 아무것도 안 찍힘 | 로컬에서 CRD를 크롬 탭으로 열었거나 로컬 규칙이 없음. 로컬 macOS가 F19를 한영전환으로 먼저 소비해 원격에 안 감 | 로컬에서 `sleep 5; lsappinfo info -only bundleid "$(lsappinfo front)"` 실행 후 5초 안에 CRD 창 클릭. `com.google.Chrome` 이면 3단계의 앱 설치 |
 | 캡스락을 **길게** 눌러야만 가끔 바뀜 | 위와 같음. 길게 누르면 CRD가 F19를 반복 전송해 일부가 원격에 도착한다. 원격 프로그램이 CRD가 보낸 F19도 받아 주지만 짧은 누름은 로컬이 가져간다 | 위와 같음 |
 | 로그에는 토글이 찍히는데 입력되는 글자가 가끔 이전 언어 | `(tis)` 방식으로 동작 중. macOS가 백그라운드 입력 소스 변경을 앱에 늦게 반영함 | `make hotkey` 로 단축키 등록 후 `make install` 재실행. 로그가 `(hotkey)` 로 바뀌어야 한다 |
+| 캡스락을 누를 때마다 원격 키보드와 마우스가 2초쯤 멈춤 (화면은 계속 나옴) | 예전 빌드. 한영전환 단축키를 새 키 이벤트로 주입해서 CRD 호스트가 로컬 입력으로 보고 원격 입력을 2초간 막음 | 최신 코드로 `make install` 재실행 후 손쉬운 사용 권한 다시 허용. 급하면 `make install ARGS="--method tis"` |
 | doctor `FAIL 손쉬운 사용 권한 대기 중` | 권한 없음 | 2단계의 [사람] 요청 |
 | `입력 소스를 찾지 못했습니다` (exit 78) | 입력 소스 ID 불일치 | `--list` 결과로 `make install ARGS=...` |
 

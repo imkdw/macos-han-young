@@ -3,7 +3,8 @@ import Foundation
 public enum ToggleMethod: String, Equatable {
     /// 시스템 한영전환 단축키가 있으면 hotkey, 없으면 tis
     case auto
-    /// 시스템 한영전환 단축키를 합성 키 이벤트로 누른다. 실제 키 입력과 같은 경로라 앱 반영이 확실하다
+    /// CRD가 보낸 트리거 키를 시스템 한영전환 단축키로 바꿔서 넘긴다. 실제 키 입력과 같은 경로라 앱 반영이 확실하다.
+    /// 키 이벤트를 새로 주입하지 않는다. 주입하면 CRD 호스트가 로컬 입력으로 보고 원격 입력을 2초간 막는다
     case hotkey
     /// TISSelectInputSource로 직접 선택한다. 한/영 외 입력 소스에서 영문으로 보낼 수 있지만 반영이 가끔 누락된다 (R4)
     case tis
@@ -74,7 +75,7 @@ public let usage = """
   --crd-process <name>  CRD 호스트 실행 파일 이름 (기본값: \(Config.defaultCRDProcess))
   --debounce <ms>  이 시간 안에 연달아 온 keyDown은 한 번으로 처리 (기본값: \(Config.defaultDebounceMs))
   --method <m>     auto | hotkey | tis (기본값: auto)
-                   hotkey: 시스템 한영전환 단축키를 대신 누름, tis: 입력 소스를 직접 선택
+                   hotkey: 받은 키를 시스템 한영전환 단축키로 바꿔 넘김, tis: 입력 소스를 직접 선택
   --toggle         이벤트 탭 없이 한 번만 토글하고 종료
   --check          입력 소스 ID가 유효한지만 확인하고 종료
   --list           선택 가능한 입력 소스 ID 목록 출력

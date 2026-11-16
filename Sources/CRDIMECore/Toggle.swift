@@ -8,6 +8,7 @@ public func nextInputSourceID(current: String?, config: Config) -> String {
     }
 }
 
+/// swallow, toggleAndSwallow 는 tis 방식 기준 이름이다. hotkey 방식에서는 삼키는 대신 시스템 단축키로 바꿔서 넘긴다
 public enum KeyAction: Equatable {
     case pass
     case swallow
