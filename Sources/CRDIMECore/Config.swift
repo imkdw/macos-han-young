@@ -28,6 +28,13 @@ public struct Config: Equatable {
     public var method = ToggleMethod.auto
     /// 키를 주입하는 CRD 호스트 실행 파일 이름. 이 프로세스가 보낸 키만 트리거로 쓴다
     public var crdProcess = Config.defaultCRDProcess
+    /// CRD 호스트가 넘긴 캡스락(flagsChanged keycode 57)도 트리거로 쓴다. 키를 바꿔 보낼 수 없는 윈도우 클라이언트용.
+    /// 켜면 CRD로 들어온 키 입력에서 캡스락 상태를 지워서 원격으로는 대문자 고정을 쓸 수 없다
+    public var capsLock = false
+    /// CRD로 들어온 입력에서 Control과 Command를 맞바꾼다. 윈도우 클라이언트의 Ctrl을 맥 Command로, Win 키를 맥 Control로 쓴다
+    public var swapCtrlCmd = false
+    /// CRD로 들어온 왼쪽 Control만 Command로 바꾼다. 오른쪽 Control은 그대로 둔다. Win 키가 넘어오지 않는 윈도우 클라이언트용
+    public var leftCtrlAsCmd = false
 
     public init() {}
 }
@@ -72,6 +79,9 @@ public let usage = """
   --keycode <n>    트리거 keycode (기본값: \(Config.defaultKeycode), F18)
   --crd-keycode <n>  보조 트리거 keycode (기본값: \(Config.defaultCRDKeycode), F19)
                    두 keycode 모두 CRD 호스트가 보낸 경우에만 반응한다. 로컬 키보드 입력은 통과
+  --caps-lock      CRD 호스트가 넘긴 캡스락도 트리거로 쓴다 (윈도우에서 접속할 때. 입력 소스를 직접 선택)
+  --swap-ctrl-cmd  CRD로 들어온 입력의 Control과 Command를 맞바꾼다 (윈도우 Ctrl = 맥 Command, Win 키 = 맥 Control)
+  --left-ctrl-as-cmd  CRD로 들어온 왼쪽 Control만 Command로 바꾼다 (오른쪽 Ctrl은 맥 Control 그대로)
   --crd-process <name>  CRD 호스트 실행 파일 이름 (기본값: \(Config.defaultCRDProcess))
   --debounce <ms>  이 시간 안에 연달아 온 keyDown은 한 번으로 처리 (기본값: \(Config.defaultDebounceMs))
   --method <m>     auto | hotkey | tis (기본값: auto)
@@ -122,6 +132,9 @@ public func parseArguments(_ args: [String]) throws -> Command {
             guard let method = ToggleMethod(rawValue: raw) else { throw ArgumentError.invalidMethod(raw) }
             config.method = method
         case "--crd-process": config.crdProcess = try value(after: arg)
+        case "--caps-lock": config.capsLock = true
+        case "--swap-ctrl-cmd": config.swapCtrlCmd = true
+        case "--left-ctrl-as-cmd": config.leftCtrlAsCmd = true
         case "--toggle": mode = "toggle"
         case "--check": mode = "check"
         case "--list": return .list

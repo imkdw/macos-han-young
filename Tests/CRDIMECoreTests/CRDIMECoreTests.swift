@@ -147,6 +147,47 @@ final class CRDProcessTests: XCTestCase {
         XCTAssertEqual(Config().crdProcess, "remoting_me2me_host")
     }
 
+    func testSwapCtrlCmd() throws {
+        guard case .run(let config) = try parseArguments(["--swap-ctrl-cmd"]) else { return XCTFail() }
+        XCTAssertTrue(config.swapCtrlCmd)
+        XCTAssertFalse(Config().swapCtrlCmd)
+        XCTAssertEqual(ModifierSwap.flags(0x2004_0001), 0x2010_0008)
+        XCTAssertEqual(ModifierSwap.flags(0x2010_0010), 0x2004_2000)
+        XCTAssertEqual(ModifierSwap.flags(0x2014_0009), 0x2014_0009)
+        XCTAssertEqual(ModifierSwap.flags(0x2002_0000), 0x2002_0000)
+        XCTAssertEqual(ModifierSwap.keycode(59), 55)
+        XCTAssertEqual(ModifierSwap.keycode(54), 62)
+        XCTAssertEqual(ModifierSwap.keycode(0), 0)
+    }
+
+    func testLeftControlBecomesCommand() throws {
+        guard case .run(let config) = try parseArguments(["--left-ctrl-as-cmd"]) else { return XCTFail() }
+        XCTAssertTrue(config.leftCtrlAsCmd)
+        var remapper = LeftControlRemapper()
+        XCTAssertEqual(remapper.modifierChanged(keycode: 59, flags: 0x2004_0000), 55)
+        XCTAssertEqual(remapper.flags(0x2004_0000), 0x2010_0000)
+        XCTAssertEqual(remapper.modifierChanged(keycode: 59, flags: 0x2000_0000), 55)
+        XCTAssertEqual(remapper.flags(0x2000_0000), 0x2000_0000)
+    }
+
+    func testRightControlStaysControl() {
+        var remapper = LeftControlRemapper()
+        XCTAssertEqual(remapper.modifierChanged(keycode: 62, flags: 0x2004_0000), 62)
+        XCTAssertEqual(remapper.flags(0x2004_0000), 0x2004_0000)
+        XCTAssertEqual(remapper.modifierChanged(keycode: 59, flags: 0x2004_0000), 55)
+        XCTAssertEqual(remapper.flags(0x2004_0000), 0x2014_0000)
+        XCTAssertEqual(remapper.modifierChanged(keycode: 59, flags: 0x2004_0000), 55)
+        XCTAssertEqual(remapper.flags(0x2004_0000), 0x2004_0000)
+        XCTAssertEqual(remapper.modifierChanged(keycode: 62, flags: 0x2000_0000), 62)
+        XCTAssertFalse(remapper.rightDown)
+    }
+
+    func testCapsLockOption() throws {
+        guard case .run(let config) = try parseArguments(["--caps-lock"]) else { return XCTFail() }
+        XCTAssertTrue(config.capsLock)
+        XCTAssertFalse(Config().capsLock)
+    }
+
     func testDetectorMatchesOwnProcessName() {
         let ownName = (CRDSourceDetector.executablePath(of: getpid())! as NSString).lastPathComponent
         XCTAssertTrue(CRDSourceDetector(processName: ownName).isCRDHost(pid: getpid()))

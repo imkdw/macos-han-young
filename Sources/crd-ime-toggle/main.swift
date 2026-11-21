@@ -128,6 +128,11 @@ if !AXIsProcessTrustedWithOptions([promptKey: true] as CFDictionary) {
 var eventTap: CFMachPort?
 let crdDetector = CRDSourceDetector(processName: config.crdProcess)
 var debouncer = TriggerDebouncer(window: Double(config.debounceMs) / 1000)
+/// kVK_CapsLock
+let capsLockKeycode: Int64 = 57
+// CRD 호스트는 캡스락 한 번에 flagsChanged를 60~90ms 간격으로 두 번 보낸다 (누름, 뗌). 둘을 한 번으로 묶는다
+var capsDebouncer = TriggerDebouncer(window: 0.12)
+var leftControlRemapper = LeftControlRemapper()
 
 let callback: CGEventTapCallBack = { _, type, event, _ in
     switch type {
@@ -141,8 +146,51 @@ let callback: CGEventTapCallBack = { _, type, event, _ in
     }
 
     let kind: KeyEventKind = type == .keyDown ? .keyDown : (type == .keyUp ? .keyUp : .other)
-    let keycode = event.getIntegerValueField(.keyboardEventKeycode)
     let sourcePID = event.getIntegerValueField(.eventSourceUnixProcessID)
+    let isKeyEvent = type == .keyDown || type == .keyUp || type == .flagsChanged
+    if config.swapCtrlCmd, crdDetector.isCRDHost(pid: pid_t(sourcePID)) {
+        let swapped = ModifierSwap.flags(event.flags.rawValue)
+        if swapped != event.flags.rawValue {
+            event.flags = CGEventFlags(rawValue: swapped)
+        }
+        if type == .flagsChanged {
+            let original = event.getIntegerValueField(.keyboardEventKeycode)
+            let mapped = ModifierSwap.keycode(original)
+            if mapped != original {
+                event.setIntegerValueField(.keyboardEventKeycode, value: mapped)
+            }
+        }
+    }
+    if config.leftCtrlAsCmd, crdDetector.isCRDHost(pid: pid_t(sourcePID)) {
+        if type == .flagsChanged {
+            let original = event.getIntegerValueField(.keyboardEventKeycode)
+            let mapped = leftControlRemapper.modifierChanged(keycode: original, flags: event.flags.rawValue)
+            if mapped != original {
+                event.setIntegerValueField(.keyboardEventKeycode, value: mapped)
+            }
+        }
+        let rewritten = leftControlRemapper.flags(event.flags.rawValue)
+        if rewritten != event.flags.rawValue {
+            event.flags = CGEventFlags(rawValue: rewritten)
+        }
+    }
+    guard isKeyEvent else { return Unmanaged.passUnretained(event) }
+    let keycode = event.getIntegerValueField(.keyboardEventKeycode)
+    if config.capsLock, crdDetector.isCRDHost(pid: pid_t(sourcePID)) {
+        if type == .flagsChanged, keycode == capsLockKeycode {
+            if capsDebouncer.keyDown(at: ProcessInfo.processInfo.systemUptime) {
+                selectNextInputSource()
+            }
+            return nil
+        }
+        // 윈도우 쪽 캡스락 상태가 따라와 대문자로 찍히지 않게 CRD 이벤트에서 캡스락 표시를 지운다
+        if event.flags.contains(.maskAlphaShift) {
+            event.flags.remove(.maskAlphaShift)
+        }
+    }
+    if type == .flagsChanged {
+        return Unmanaged.passUnretained(event)
+    }
     // 트리거 후보 keycode일 때만 출처 프로세스를 확인한다
     var fromCRD = false
     if keycode == config.keycode || keycode == config.crdKeycode {
@@ -182,7 +230,16 @@ let callback: CGEventTapCallBack = { _, type, event, _ in
     }
 }
 
-let mask = CGEventMask(1 << CGEventType.keyDown.rawValue) | CGEventMask(1 << CGEventType.keyUp.rawValue)
+var mask = CGEventMask(1 << CGEventType.keyDown.rawValue) | CGEventMask(1 << CGEventType.keyUp.rawValue)
+if config.capsLock || config.swapCtrlCmd || config.leftCtrlAsCmd {
+    mask |= CGEventMask(1 << CGEventType.flagsChanged.rawValue)
+}
+if config.swapCtrlCmd || config.leftCtrlAsCmd {
+    // Ctrl+클릭, Ctrl+스크롤도 Command로 넘어가게 마우스 이벤트의 수식키 표시도 바꾼다
+    for mouseType in [CGEventType.leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp, .leftMouseDragged, .scrollWheel] {
+        mask |= CGEventMask(1 << mouseType.rawValue)
+    }
+}
 guard let tap = CGEvent.tapCreate(
     tap: .cgSessionEventTap,
     place: .headInsertEventTap,
@@ -199,5 +256,5 @@ let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
 CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
 CGEvent.tapEnable(tap: tap, enable: true)
 
-log("시작: keycode=\(config.keycode) crd-keycode=\(config.crdKeycode) crd-process=\(config.crdProcess) debounce=\(config.debounceMs)ms method=\(hotkey.map { "hotkey(keycode=\($0.keycode))" } ?? "tis") en=\(config.englishID) ko=\(config.koreanID)")
+log("시작: keycode=\(config.keycode) crd-keycode=\(config.crdKeycode) crd-process=\(config.crdProcess) debounce=\(config.debounceMs)ms caps-lock=\(config.capsLock) swap-ctrl-cmd=\(config.swapCtrlCmd) left-ctrl-as-cmd=\(config.leftCtrlAsCmd) method=\(hotkey.map { "hotkey(keycode=\($0.keycode))" } ?? "tis") en=\(config.englishID) ko=\(config.koreanID)")
 CFRunLoopRun()
